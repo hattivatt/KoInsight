@@ -20,7 +20,7 @@
       packages = forAllSystems (pkgs: rec {
         koinsight = pkgs.buildNpmPackage (finalAttrs: {
           pname = "koinsight";
-          version = "0.2.4";
+          version = "0.2.5";
 
           # Explicit filtered source: `./.` would silently follow flake git
           # tracking (untracked files) and would drag in node_modules/dist.
@@ -46,7 +46,7 @@
 
           npmDeps = pkgs.fetchNpmDeps {
             inherit (finalAttrs) src;
-            hash = "sha256-0jZ+B3Ufe+eYFPs2+tq0cJLYX56HRy/2v8gjnq7ENUc=";
+            hash = "sha256-ZyUcwHBkCi686IPx6jw25HMlVErI2xjRYancZ4ISzTo=";
           };
 
           # Node 22 is required by the project (`engines.node >= 22`).
