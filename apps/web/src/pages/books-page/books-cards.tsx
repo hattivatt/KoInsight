@@ -5,6 +5,7 @@ import {
   IconBooks,
   IconEyeClosed,
   IconHighlight,
+  IconPageBreak,
   IconProgress,
   IconUser,
 } from '@tabler/icons-react';
@@ -54,7 +55,7 @@ export function BooksCards({ books }: BooksCardsProps): JSX.Element {
           <Progress
             radius={0}
             h={5}
-            value={(book.unique_read_pages / book.total_pages) * 100}
+            value={(book.read_progress_pages / book.total_pages) * 100}
             color="koinsight"
           />
           <Box px="lg" className={C(style.CardDetails, { [style.Small]: isSmallScreen })}>
@@ -88,14 +89,20 @@ export function BooksCards({ books }: BooksCardsProps): JSX.Element {
                   </Group>
                 )}
                 <Group wrap="nowrap" gap={8}>
-                  <Tooltip label="Pages read" position="top" withArrow>
+                  <Tooltip label="Reading progress (furthest page)" position="top" withArrow>
                     <IconProgress stroke={1.5} size={16} />
                   </Tooltip>
                   <span className={style.Attribute}>
-                    {book.unique_read_pages}
+                    {book.read_progress_pages}
                     &nbsp;/&nbsp;
                     {book.total_pages} pages read
                   </span>
+                </Group>
+                <Group wrap="nowrap" gap={8}>
+                  <Tooltip label="Unique pages read" position="top" withArrow>
+                    <IconPageBreak stroke={1.5} size={16} />
+                  </Tooltip>
+                  <span className={style.Attribute}>{book.unique_read_pages} unique pages</span>
                 </Group>
               </>
             )}

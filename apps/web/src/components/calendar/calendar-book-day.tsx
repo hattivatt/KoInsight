@@ -3,8 +3,8 @@ import { Tooltip } from '@mantine/core';
 import { IconClock } from '@tabler/icons-react';
 import { sum } from 'ramda';
 import { JSX } from 'react';
-import { getReferencePageRange, Range } from '../../utils/book-progress';
 import { getDuration, shortDuration } from '../../utils/dates';
+import { getScaledPageRange, Range } from '../../utils/scaled-pages';
 
 type CalendarBookDayProps = {
   book: BookWithData;
@@ -20,7 +20,7 @@ function formatRange(range: Range): string {
 }
 
 export function CalendarBookDay({ book, data }: CalendarBookDayProps): JSX.Element {
-  const [start, end] = getReferencePageRange(book, data.events);
+  const [start, end] = getScaledPageRange(book, data.events, book.device_data);
   const duration = getDuration(sum(data.events.map((event) => event.duration)));
 
   return (

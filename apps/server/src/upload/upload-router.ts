@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { unlinkSync } from 'fs';
 import multer from 'multer';
 import { appConfig } from '../config';
+import { resolveUploadDevice } from './device-resolution';
 import { UploadService } from './upload-service';
 
 const storage = multer.diskStorage({
@@ -36,6 +37,30 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     return;
   }
 
+  // Resolve the device that produced this statistics DB. The device id is read
+  // from the `deviceId` form field, else derived from the `deviceName` field,
+  // else taken from the `X-Device-Id` header, else falls back (with a warning)
+  // to the legacy `manual-upload` pseudo-device.
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const device = resolveUploadDevice({
+    deviceId: body.deviceId ?? body.device_id,
+    deviceName: body.deviceName ?? body.device_name,
+    headerDeviceId: req.header('X-Device-Id'),
+  });
+
+  if (device.source === 'legacy') {
+    console.warn(
+      '[upload] No deviceId/deviceName field and no X-Device-Id header; ' +
+        'attributing this upload to the legacy "manual-upload" device.'
+    );
+  } else {
+    console.info(
+      `[upload] Importing statistics for device "${device.id}" (${device.source}` +
+        (device.source === 'deviceName' ? `: "${device.label}"` : '') +
+        ')'
+    );
+  }
+
   let db;
   try {
     db = UploadService.openStatisticsDbFile(uploadedFilePath);
@@ -46,8 +71,14 @@ router.post('/', upload.single('file'), async (req, res, next) => {
   }
 
   try {
-    const { newBooks, newPageStats } = UploadService.extractDataFromStatisticsDb(db);
-    await UploadService.uploadStatisticData(newBooks, newPageStats);
+    const { newBooks, newPageStats } = UploadService.extractDataFromStatisticsDb(db, device.id);
+    await UploadService.uploadStatisticData(
+      newBooks,
+      newPageStats,
+      undefined,
+      device.id,
+      device.label
+    );
 
     res.status(200).json({ message: 'Database imported successfully' });
   } catch (err) {

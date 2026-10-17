@@ -1,5 +1,4 @@
-import { Book } from '@koinsight/common/types/book';
-import { PageStat } from '@koinsight/common/types/page-stat';
+import { BookWithData, PageStat } from '@koinsight/common/types';
 import { AreaChart } from '@mantine/charts';
 import { Flex, Popover, Text, useComputedColorScheme, useMantineTheme } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
@@ -26,13 +25,14 @@ import { groupBy, sum } from 'ramda';
 import { useMemo, useState } from 'react';
 import { Statistics } from '../../components/statistics/statistics';
 import { formatSecondsToHumanReadable } from '../../utils/dates';
+import { getScaledPagesRead } from '../../utils/scaled-pages';
 
 export function WeekStats({
   stats,
   booksByMd5,
 }: {
   stats: PageStat[];
-  booksByMd5: Record<string, Book>;
+  booksByMd5: Record<string, BookWithData>;
 }) {
   const colorScheme = useComputedColorScheme();
   const { colors } = useMantineTheme();
@@ -57,38 +57,33 @@ export function WeekStats({
     [weekStart, weekEnd]
   );
 
-  const pagesRead = useMemo(
-    () =>
-      Math.round(
-        weekData?.reduce((acc, stat) => {
-          if (stat.total_pages && booksByMd5[stat.book_md5]?.reference_pages) {
-            return acc + (1 / stat.total_pages) * booksByMd5[stat.book_md5].reference_pages!;
-          } else {
-            return acc + 1;
-          }
-        }, 0) ?? 0
-      ),
-    [weekData]
-  );
-
-  const avgPagesPerDay = useMemo(() => {
-    const statsPerDay = groupBy((stat: PageStat) =>
+  // Pages read on the canonical (per-book) scale, matching the server's
+  // interval math: every row is projected onto `R = reference_pages ||
+  // max(device pages)` and the union of the scaled intervals per day is taken.
+  const pagesByDay = useMemo(() => {
+    const grouped = groupBy((stat: PageStat) =>
       startOfDay(stat.start_time).getTime().toString()
     )(weekData ?? []);
 
-    const pagesPerDay = Object.values(statsPerDay).map(
-      (dayStats) =>
-        dayStats?.reduce((acc, stat) => {
-          if (stat.total_pages && booksByMd5[stat.book_md5]?.reference_pages) {
-            return acc + (1 / stat.total_pages) * booksByMd5[stat.book_md5].reference_pages!;
-          } else {
-            return acc + 1;
-          }
-        }, 0) ?? 0
-    );
+    const result: Record<string, number> = {};
+    for (const [day, dayStats] of Object.entries(grouped)) {
+      const statsByBook = groupBy((stat: PageStat) => stat.book_md5)(dayStats ?? []);
+      result[day] = sum(
+        Object.entries(statsByBook).map(([md5, rows]) => {
+          const book = booksByMd5[md5];
+          return getScaledPagesRead(book, rows ?? [], book?.device_data);
+        })
+      );
+    }
+    return result;
+  }, [weekData, booksByMd5]);
 
-    return Math.round(sum(pagesPerDay) / pagesPerDay.length);
-  }, [weekData]);
+  const pagesRead = useMemo(() => Math.round(sum(Object.values(pagesByDay))), [pagesByDay]);
+
+  const avgPagesPerDay = useMemo(() => {
+    const values = Object.values(pagesByDay);
+    return values.length > 0 ? Math.round(sum(values) / values.length) : 0;
+  }, [pagesByDay]);
 
   const perDay = useMemo(() => {
     const perDayResult = [];

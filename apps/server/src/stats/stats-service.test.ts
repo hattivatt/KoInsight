@@ -96,19 +96,27 @@ describe(StatsService, () => {
           async (i) =>
             await createPageStat(db, book, bookDevice, device, {
               start_time: new Date(2025, 1, 1 + i).getTime(),
+              page: i + 1,
+              total_pages: 100,
             })
         )
       );
 
+      // Two extra reading events on the same day (distinct pages so the union
+      // of that day is a full 3 pages on the 100-page scale).
       stats.push(
         await createPageStat(db, book, bookDevice, device, {
           start_time: new Date(2025, 1, 1).getTime(),
+          page: 4,
+          total_pages: 100,
         })
       );
 
       stats.push(
         await createPageStat(db, book, bookDevice, device, {
           start_time: new Date(2025, 1, 1).getTime(),
+          page: 5,
+          total_pages: 100,
         })
       );
 
@@ -120,11 +128,15 @@ describe(StatsService, () => {
       book = await createBook(db, { title: 'Test Book 1', reference_pages: 200 });
       bookDevice = await createBookDevice(db, book, device, { pages: 400 });
 
+      // bookDevice.pages = 400, so each page_stat row spans 400-page positions.
+      // With reference_pages = 200 each row counts for half a reference page.
       const stats = await Promise.all(
         range(0, 3).map(
           async (i) =>
             await createPageStat(db, book, bookDevice, device, {
               start_time: new Date(2025, 1, 1 + i).getTime(),
+              page: i + 1,
+              total_pages: 400,
             })
         )
       );
@@ -132,17 +144,21 @@ describe(StatsService, () => {
       stats.push(
         await createPageStat(db, book, bookDevice, device, {
           start_time: new Date(2025, 1, 1).getTime(),
+          page: 4,
+          total_pages: 400,
         })
       );
 
       stats.push(
         await createPageStat(db, book, bookDevice, device, {
           start_time: new Date(2025, 1, 1).getTime(),
+          page: 5,
+          total_pages: 400,
         })
       );
 
       const result = await StatsService.mostPagesInADay([book], stats);
-      expect(result).toEqual(2); // result is rounded
+      expect(result).toEqual(2); // 3 * 0.5 = 1.5 reference pages on the busiest day
     });
 
     it('returns 0 with no stats', async () => {

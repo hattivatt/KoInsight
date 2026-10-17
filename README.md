@@ -140,6 +140,8 @@ Reload the KoInsight web dashboard. If everything went well (🤞), your data sh
 
 Every time you need to reupload data, you would need to upload the statistics database file again.
 
+Uploads are attributed to the `manual-upload` pseudo-device by default. To attribute an upload to the real device it came from, send the `deviceId` and/or `deviceName` multipart fields (or an `X-Device-Id` header) with the upload. Books also auto-fill their `reference_pages` at ingest when unset, so page counts from devices with different paginations are merged on a common scale.
+
 
 ## Use as progress sync server
 
@@ -155,6 +157,18 @@ The progress sync data should appear in the **"Progress syncs"** page in KoInsig
 
 # Development
 See [DEVELOPMENT.md](DEVELOPMENT.md) for development setup and instructions.
+
+## Retro device assignment
+
+If you uploaded statistics from several devices before device attribution was supported, that data was merged onto a single `manual-upload` device. This maintenance script re-attributes it using the original KOReader statistics DBs as the source of truth:
+
+```bash
+npm --workspace=server run retro-devices -- \
+    --source /path/to/koreader-telefon.sqlite3=Телефон \
+    --source /path/to/koreader-noutbuk.sqlite3=Ноутбук
+```
+
+It is a dry-run by default; add `--apply` to write (a backup is taken first). Writing to the production database additionally requires `--force-prod`. Run with `--help` for all options.
 
 # Roadmap
 (a.k.a things I want to do)

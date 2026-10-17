@@ -94,8 +94,9 @@ export class BooksRepository {
         const totalPages = BooksService.getTotalPages(book, bookDevices);
         const lastOpen = BooksService.getLastOpen(bookDevices);
         const totalReadTime = BooksService.getTotalReadTime(bookDevices);
-        const totalReadPages = BooksService.getTotalReadPages(book, stats);
-        const uniqueReadPages = BooksService.getUniqueReadPages(book, stats);
+        const totalReadPages = BooksService.getTotalReadPages(stats);
+        const uniqueReadPages = BooksService.getUniqueReadPages(book, bookDevices, stats);
+        const readProgressPages = BooksService.getReadProgressPages(book, bookDevices, stats);
         const started_reading = BooksService.getStartedReading(stats);
         const read_per_day = BooksService.getReadPerDay(stats);
 
@@ -108,6 +109,7 @@ export class BooksRepository {
           total_pages: totalPages,
           total_read_pages: totalReadPages,
           unique_read_pages: uniqueReadPages,
+          read_progress_pages: readProgressPages,
           total_read_time: totalReadTime,
           last_open: lastOpen,
           highlights: sum(bookDevices.map((device) => device.highlights)),

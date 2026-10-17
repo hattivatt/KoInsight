@@ -1,12 +1,14 @@
 import {
   Book,
+  BookDevice,
   BookWithData,
   PageStat,
   PerDayOfTheWeek,
   PerMonthReadingTime,
 } from '@koinsight/common/types';
 import { format, startOfDay, subDays } from 'date-fns';
-import { groupBy, sum } from 'ramda';
+import { sum } from 'ramda';
+import { getPagesPerDay } from '../books/reading-progress';
 
 export class StatsService {
   static getPerMonthReadingTime(stats: PageStat[]): PerMonthReadingTime[] {
@@ -46,8 +48,8 @@ export class StatsService {
       .sort((a, b) => a.day - b.day);
   }
 
-  static mostPagesInADay(books: Book[], stats: PageStat[]) {
-    const max = Math.round(Math.max(...this.getPagesPerDay(stats, books)));
+  static mostPagesInADay(books: Book[], stats: PageStat[], bookDevices: BookDevice[] = []) {
+    const max = Math.round(Math.max(...this.getPagesPerDay(stats, books, bookDevices)));
     return Math.max(0, max);
   }
 
@@ -72,34 +74,22 @@ export class StatsService {
     return sum(lastSevenDays.map((s) => s.duration));
   }
 
+  /**
+   * Named for historical reasons: this now sums `total_read_pages`, which is a
+   * reading-EVENT count (number of `page_stat` rows) and not a page count. The
+   * honest page figures per book are `unique_read_pages` / `read_progress_pages`.
+   */
   static totalPagesRead(books: BookWithData[]) {
     return books.reduce((acc, book) => acc + book.total_read_pages, 0);
   }
 
-  private static getPagesPerDay(stats: PageStat[], books: Book[]) {
-    const booksByMd5 = books?.reduce(
-      (acc, book) => {
-        acc[book.md5] = book;
-        return acc;
-      },
-      {} as Record<string, Book>
-    );
-
-    const statsPerDay = groupBy((stat: PageStat) =>
-      startOfDay(stat.start_time).getTime().toString()
-    )(stats);
-
-    const pagesPerDay = Object.values(statsPerDay).map(
-      (dayStats) =>
-        dayStats?.reduce((acc, stat) => {
-          if (stat.total_pages && booksByMd5[stat.book_md5]?.reference_pages) {
-            return acc + (1 / stat.total_pages) * booksByMd5[stat.book_md5].reference_pages!;
-          } else {
-            return acc + 1;
-          }
-        }, 0) ?? 0
-    );
-
-    return pagesPerDay;
+  /**
+   * Pages read per day on the canonical (per-book) scale — union of scaled
+   * intervals per day. Delegates to `reading-progress.ts` (single source of
+   * truth shared with the book aggregation). `bookDevices` lets the scale fall
+   * back to `max(book_device.pages)`, matching the web week-stats figures.
+   */
+  private static getPagesPerDay(stats: PageStat[], books: Book[], bookDevices: BookDevice[] = []) {
+    return getPagesPerDay(stats, books, bookDevices);
   }
 }

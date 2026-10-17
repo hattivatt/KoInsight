@@ -1,5 +1,5 @@
-import { Book } from './book';
-import { Device } from './device';
+import { Book } from './book.js';
+import { Device } from './device.js';
 
 export type BookDevice = {
   id: number;

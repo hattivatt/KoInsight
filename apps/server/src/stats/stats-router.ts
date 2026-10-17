@@ -16,7 +16,11 @@ router.get('/', async (_: Request, res: Response) => {
   const stats = await StatsRepository.getAll();
   const perMonth = StatsService.getPerMonthReadingTime(stats);
   const perDayOfTheWeek = StatsService.perDayOfTheWeek(stats);
-  const mostPagesInADay = StatsService.mostPagesInADay(books, stats);
+  const mostPagesInADay = StatsService.mostPagesInADay(
+    books,
+    stats,
+    books.flatMap((book) => book.device_data ?? [])
+  );
   const totalReadingTime = StatsService.totalReadingTime(stats);
   const longestDay = StatsService.longestDay(stats);
   const last7DaysReadTime = StatsService.last7DaysReadTime(stats);

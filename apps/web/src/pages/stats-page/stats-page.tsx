@@ -1,4 +1,4 @@
-import { Book } from '@koinsight/common/types/book';
+import { BookWithData } from '@koinsight/common/types';
 import { BarChart } from '@mantine/charts';
 import {
   Box,
@@ -45,7 +45,7 @@ export function StatsPage(): JSX.Element {
         acc[book.md5] = book;
         return acc;
       },
-      {} as Record<string, Book>
+      {} as Record<string, BookWithData>
     );
   }, [books]);
 
@@ -87,7 +87,7 @@ export function StatsPage(): JSX.Element {
               icon: IconClock,
             },
             {
-              label: 'Total pages read',
+              label: 'Reading events',
               value: totalPagesRead,
               icon: IconPageBreak,
             },

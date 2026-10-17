@@ -7,13 +7,13 @@ import {
   KoReaderPageStat,
   PageStat,
 } from '@koinsight/common/types';
+import { Knex } from 'knex';
 import Database, { Database as DatabaseType } from 'better-sqlite3';
 import { AnnotationsRepository } from '../annotations/annotations-repository';
 import { db } from '../knex';
+import { LEGACY_DEVICE_ID } from './device-resolution';
 
 export class UploadService {
-  private static UNKNOWN_DEVICE_ID = 'manual-upload';
-
   static openStatisticsDbFile(uploadedFilePath: string) {
     const db = new Database(uploadedFilePath, { readonly: true });
     const bookIds = db.prepare('SELECT id FROM book').all();
@@ -25,24 +25,95 @@ export class UploadService {
     return db;
   }
 
-  static extractDataFromStatisticsDb(db: DatabaseType) {
+  /**
+   * Extract books and page stats from a KOReader `statistics.sqlite3`.
+   *
+   * The KOReader schema has no device column, so every row is stamped with the
+   * resolved `deviceId` (falling back to the legacy pseudo-device). Callers
+   * that know the real device must pass it here or as the `deviceIdOverride`
+   * argument of {@link uploadStatisticData}.
+   */
+  static extractDataFromStatisticsDb(db: DatabaseType, deviceId = LEGACY_DEVICE_ID) {
     const newBooks = db.prepare('SELECT * FROM book').all() as KoReaderBook[];
     const dbPageStats = db.prepare('SELECT * FROM page_stat_data').all() as KoReaderPageStat[];
 
     const newPageStats: PageStat[] = dbPageStats.map(({ id_book, ...stat }) => ({
       book_md5: newBooks.find((book) => book.id === id_book)!.md5,
-      device_id: this.UNKNOWN_DEVICE_ID,
+      device_id: deviceId,
       ...stat,
     }));
 
     return { newBooks, newPageStats };
   }
 
+  /**
+   * Explicit, testable device-id precedence for an upload:
+   *   1. `deviceIdOverride` — an explicit choice (form field / header / plugin body).
+   *   2. the device id carried by the page stat rows (plugin sync path).
+   *   3. the legacy `manual-upload` pseudo-device (backwards compatibility).
+   *
+   * It never assumes `manual-upload` is the only legacy device: any arbitrary
+   * id may be passed and will be created if it does not exist yet.
+   */
+  static resolveDeviceId(pageStats: PageStat[], deviceIdOverride?: string): string {
+    const override = deviceIdOverride?.trim();
+    if (override) return override;
+
+    const fromStats = pageStats.find((stat) => stat.device_id?.trim())?.device_id;
+    if (fromStats) return fromStats;
+
+    return LEGACY_DEVICE_ID;
+  }
+
+  /** Create the `device` row if missing. Existing rows keep their label. */
+  private static async ensureDevice(
+    trx: Knex.Transaction,
+    deviceId: string,
+    deviceLabel?: string
+  ): Promise<void> {
+    const existing = await trx<Device>('device').where({ id: deviceId }).first();
+    if (existing) return;
+
+    await trx<Device>('device').insert({
+      id: deviceId,
+      model: deviceLabel?.trim() || (deviceId === LEGACY_DEVICE_ID ? 'Manual Upload' : deviceId),
+    });
+  }
+
+  /**
+   * Auto-populate `book.reference_pages` from the devices seen so far.
+   *
+   * Only fills books whose `reference_pages` is still NULL, so a value set by
+   * the user (or by `PUT /books/:id/reference_pages`) is never overwritten.
+   * The derived value is `max(book_device.pages)` — the same derivation the
+   * retro script uses.
+   */
+  private static async fillReferencePages(
+    trx: Knex.Transaction,
+    bookMd5s: string[]
+  ): Promise<void> {
+    for (const md5 of bookMd5s) {
+      const row = (await trx('book_device')
+        .where({ book_md5: md5 })
+        .max('pages as maxPages')
+        .first()) as { maxPages: number | null } | undefined;
+
+      const maxPages = Number(row?.maxPages ?? 0);
+      if (maxPages > 0) {
+        await trx<Book>('book')
+          .where({ md5 })
+          .whereNull('reference_pages')
+          .update({ reference_pages: maxPages });
+      }
+    }
+  }
+
   static uploadStatisticData(
     booksToImport: KoReaderBook[],
     newPageStats: PageStat[],
     annotationsByBook?: Record<string, KoReaderAnnotation[]>,
-    deviceIdOverride?: string // For annotation sync path without stats
+    deviceIdOverride?: string, // explicit device id (upload form / plugin annotation sync)
+    deviceLabel?: string // human label, used only when the device row is created
   ) {
     return db.transaction(async (trx) => {
       // Normalize: the plugin sends {} (empty Lua table → JSON object) on the
@@ -71,25 +142,21 @@ export class UploadService {
         newBooks.map(({ id, ...book }) => trx<Book>('book').insert(book).onConflict('md5').ignore())
       );
 
-      // Determine device ID: from stats, override, or fall back to unknown device
-      const firstValidStat = safePageStats.find((s) => s.device_id);
-      const deviceId = firstValidStat?.device_id ?? deviceIdOverride ?? this.UNKNOWN_DEVICE_ID;
+      // Determine the device for this upload. Explicit override wins, then the
+      // device id carried by the rows, then the legacy fallback (see
+      // `resolveDeviceId`). Any id is accepted; the device row is created if it
+      // does not exist yet, so arbitrary device ids work.
+      const deviceId = this.resolveDeviceId(safePageStats, deviceIdOverride);
 
-      const hasUnknownDevices = deviceId === this.UNKNOWN_DEVICE_ID;
-
-      if (hasUnknownDevices) {
-        let unknownDevice = await trx<Device>('device')
-          .where({ id: this.UNKNOWN_DEVICE_ID })
-          .first();
-
-        if (!unknownDevice) {
-          console.log('Creating unknown device');
-          await trx<Device>('device').insert({
-            id: this.UNKNOWN_DEVICE_ID,
-            model: 'Manual Upload',
-          });
-        }
+      if (deviceId === LEGACY_DEVICE_ID && !deviceIdOverride) {
+        console.warn(
+          `[upload] No device id provided for this import; falling back to the legacy ` +
+            `"${LEGACY_DEVICE_ID}" pseudo-device. Pass a deviceId/deviceName field or an ` +
+            `X-Device-Id header to attribute this data to a real device.`
+        );
       }
+
+      await this.ensureDevice(trx, deviceId, deviceLabel);
 
       const newBookDevices: Omit<BookDevice, 'id'>[] = booksToImport.map((book) => ({
         device_id: deviceId,
@@ -132,12 +199,22 @@ export class UploadService {
         })
       );
 
+      // Fill book.reference_pages for books that do not have one yet, using the
+      // widest pagination seen so far. Runs after the book_device upsert so the
+      // rows are visible. Never overwrites a user-set value.
+      await this.fillReferencePages(
+        trx,
+        newBookDevices.map((bookDevice) => bookDevice.book_md5)
+      );
+
       // Insert page stats (only on stats sync path! there are none for annotation sync path)
       if (safePageStats.length > 0) {
         await Promise.all(
           safePageStats.map((pageStat) =>
             trx<PageStat>('page_stat')
-              .insert(pageStat)
+              // Every row belongs to the single device resolved above; this
+              // keeps page_stat, book_device and annotation attribution aligned.
+              .insert({ ...pageStat, device_id: deviceId })
               .onConflict(['device_id', 'book_md5', 'page', 'start_time'])
               .merge(['duration', 'total_pages'])
           )

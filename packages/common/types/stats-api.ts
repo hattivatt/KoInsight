@@ -1,4 +1,4 @@
-import { PageStat } from './page-stat';
+import { PageStat } from './page-stat.js';
 
 export type PerMonthReadingTime = {
   month: string;

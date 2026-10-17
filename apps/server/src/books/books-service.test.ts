@@ -157,8 +157,11 @@ describe(BooksService.withData, () => {
   });
 
   describe('total_read_pages', () => {
+    // NOTE: `total_read_pages` is deliberately redefined as a reading-EVENT
+    // count (number of page_stat rows), NOT a page count. The honest page
+    // figures are `unique_read_pages` and `read_progress_pages`.
     describe('with reference pages', () => {
-      it('returns the total read pages', async () => {
+      it('returns the number of page_stat rows (reading events)', async () => {
         const book1 = await createBook(db, { title: 'Test Book 1', reference_pages: 100 });
         const bookDevice1 = await createBookDevice(db, book1, device, {
           book_md5: book1.md5,
@@ -170,13 +173,13 @@ describe(BooksService.withData, () => {
           pages: 50, // each page counts as 2
         });
 
-        // 2 pages on device 1
+        // 4 pages on device 1
         await createPageStat(db, book1, bookDevice1, device, { page: 1 });
         await createPageStat(db, book1, bookDevice1, device, { page: 2 });
         await createPageStat(db, book1, bookDevice1, device, { page: 3 });
         await createPageStat(db, book1, bookDevice1, device, { page: 4 });
 
-        // 8 pages on device 2
+        // 4 pages on device 2
         await createPageStat(db, book1, bookDevice2, device, { page: 8 });
         await createPageStat(db, book1, bookDevice2, device, { page: 9 });
         await createPageStat(db, book1, bookDevice2, device, { page: 10 });
@@ -184,7 +187,7 @@ describe(BooksService.withData, () => {
 
         const result = await BooksService.withData(book1);
 
-        expect(result.total_read_pages).toEqual(10);
+        expect(result.total_read_pages).toEqual(8);
       });
 
       it('returns 0 if no pages are read', async () => {
@@ -196,7 +199,7 @@ describe(BooksService.withData, () => {
     });
 
     describe('without reference pages', () => {
-      it('returns the total read pages', async () => {
+      it('returns the number of page_stat rows (reading events)', async () => {
         const book1 = await createBook(db, { title: 'Test Book 1', reference_pages: undefined });
         const bookDevice1 = await createBookDevice(db, book1, device, {
           book_md5: book1.md5,
@@ -229,6 +232,30 @@ describe(BooksService.withData, () => {
 
         expect(result.total_read_pages).toEqual(0);
       });
+    });
+  });
+
+  describe('read_progress_pages', () => {
+    it('returns the furthest position on the canonical scale', async () => {
+      const book1 = await createBook(db, { title: 'Test Book 1', reference_pages: 100 });
+      const bookDevice = await createBookDevice(db, book1, device, {
+        book_md5: book1.md5,
+        pages: 200,
+      });
+
+      // page 40 of a 200-page layout -> 40 * 100 / 200 = 20 reference pages
+      await createPageStat(db, book1, bookDevice, device, { page: 40, total_pages: 200 });
+
+      const result = await BooksService.withData(book1);
+
+      expect(result.read_progress_pages).toEqual(20);
+    });
+
+    it('returns 0 with no stats', async () => {
+      const book1 = await createBook(db, { title: 'Test Book 1', reference_pages: 100 });
+      const result = await BooksService.withData(book1);
+
+      expect(result.read_progress_pages).toEqual(0);
     });
   });
 });
@@ -266,7 +293,7 @@ describe(BooksService.getUniqueReadPages, () => {
 
     const stats = await Promise.all(statPromises);
 
-    const result = await BooksService.getUniqueReadPages(book1, stats);
+    const result = await BooksService.getUniqueReadPages(book1, [bookDevice1, bookDevice2], stats);
 
     expect(result).toEqual(6);
   });
@@ -293,7 +320,7 @@ describe(BooksService.getUniqueReadPages, () => {
 
     const stats = await Promise.all(statPromises);
 
-    const result = await BooksService.getUniqueReadPages(book1, stats);
+    const result = await BooksService.getUniqueReadPages(book1, [bookDevice1, bookDevice2], stats);
 
     expect(result).toEqual(4);
   });
@@ -321,7 +348,7 @@ describe(BooksService.getUniqueReadPages, () => {
 
     const stats = await Promise.all(statPromises);
 
-    const result = await BooksService.getUniqueReadPages(book1, stats);
+    const result = await BooksService.getUniqueReadPages(book1, [bookDevice1, bookDevice2], stats);
 
     expect(result).toEqual(6); // result is rounded
   });

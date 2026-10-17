@@ -92,10 +92,11 @@
             cp -r apps/web/dist "$root/apps/web/dist"
             cp -r plugins "$root/plugins"
 
-            # `@koinsight/common` is a workspace symlink whose package.json has
-            # no `exports`/`main`, so the runtime `require('@koinsight/common/utils/ranges')`
-            # cannot resolve after the monorepo layout is flattened. Ship a
-            # self-contained copy with an explicit exports map (Node 22 supports
+            # `@koinsight/common` is a workspace symlink; after the monorepo
+            # layout is flattened the runtime `require('@koinsight/common/...')`
+            # cannot rely on workspace resolution. Its package.json now declares
+            # `main`/`exports` too, but we still ship a self-contained copy with
+            # an explicit exports map as belt-and-braces (Node 22 supports
             # require() of the ES modules it points at).
             rm -f "$root/node_modules/@koinsight/common"
             mkdir -p "$root/node_modules/@koinsight/common"

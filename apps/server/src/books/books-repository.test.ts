@@ -246,10 +246,12 @@ describe(BooksRepository, () => {
     });
 
     describe('total read pages', () => {
-      it('returns correct total read pages with a single device and page stats', async () => {
-        const bookDevice1 = await createBookDevice(db, book1, device1);
+      // `total_read_pages` is a reading-EVENT count (page_stat rows); the page
+      // figures are `unique_read_pages` / `read_progress_pages`.
+      it('counts reading events with a single device and page stats', async () => {
+        const bookDevice1 = await createBookDevice(db, book1, device1, { pages: 50 });
 
-        // Each page is twice as big as reference
+        // Each page is twice as big as the 100 reference pages
         await Promise.all(
           range(0, 10).map((i) =>
             createPageStat(db, book1, bookDevice1, device1, { page: i + 1, total_pages: 50 })
@@ -258,13 +260,16 @@ describe(BooksRepository, () => {
 
         result = await BooksRepository.getAllWithData();
 
-        expect(result[0].total_read_pages).toEqual(20);
+        expect(result[0].total_read_pages).toEqual(10);
+        // scale = book1.reference_pages (100); 10 contiguous 50-page rows cover
+        // [0, 10 * 100 / 50] = [0, 20]
+        expect(result[0].unique_read_pages).toEqual(20);
+        expect(result[0].read_progress_pages).toEqual(20);
       });
 
-      it('returns correct total read pages with multiple devices and page stats', async () => {
-        const bookDevice1 = await createBookDevice(db, book1, device1);
-        const bookDevice2 = await createBookDevice(db, book1, device2);
-        // Each page is twice as big as reference
+      it('counts reading events with multiple devices and page stats', async () => {
+        const bookDevice1 = await createBookDevice(db, book1, device1, { pages: 50 });
+        const bookDevice2 = await createBookDevice(db, book1, device2, { pages: 70 });
         await Promise.all(
           range(0, 10).map((i) =>
             createPageStat(db, book1, bookDevice1, device1, { page: i + 1, total_pages: 50 })
@@ -276,7 +281,12 @@ describe(BooksRepository, () => {
           )
         );
         result = await BooksRepository.getAllWithData();
-        expect(result[0].total_read_pages).toEqual(34);
+
+        expect(result[0].total_read_pages).toEqual(20);
+        // Both devices cover the same position range on the 100-page scale:
+        // device1 -> [0, 20], device2 -> [0, 10 * 100 / 70 ≈ 14.29], union = 20
+        expect(result[0].unique_read_pages).toEqual(20);
+        expect(result[0].read_progress_pages).toEqual(20);
       });
 
       describe('with no reference pages set', () => {
@@ -284,8 +294,8 @@ describe(BooksRepository, () => {
           await db<Book>('book').where({ id: book1.id }).update({ reference_pages: null });
         });
 
-        it('returns correct total read pages with a single device and page stats', async () => {
-          const bookDevice1 = await createBookDevice(db, book1, device1);
+        it('falls back to the widest device pagination as the scale', async () => {
+          const bookDevice1 = await createBookDevice(db, book1, device1, { pages: 50 });
 
           await Promise.all(
             range(0, 10).map((i) =>
@@ -295,12 +305,15 @@ describe(BooksRepository, () => {
 
           result = await BooksRepository.getAllWithData();
 
+          expect(result[0].total_pages).toEqual(50);
           expect(result[0].total_read_pages).toEqual(10);
+          expect(result[0].unique_read_pages).toEqual(10);
+          expect(result[0].read_progress_pages).toEqual(10);
         });
 
-        it('returns correct total read pages with multiple devices and page stats', async () => {
-          const bookDevice1 = await createBookDevice(db, book1, device1);
-          const bookDevice2 = await createBookDevice(db, book1, device2);
+        it('scales multiple devices onto the widest pagination', async () => {
+          const bookDevice1 = await createBookDevice(db, book1, device1, { pages: 50 });
+          const bookDevice2 = await createBookDevice(db, book1, device2, { pages: 70 });
 
           await Promise.all(
             range(0, 10).map((i) =>
@@ -316,7 +329,14 @@ describe(BooksRepository, () => {
 
           result = await BooksRepository.getAllWithData();
 
+          // scale = max(book_device.pages) = 70
+          // device1 rows -> [0, 10 * 70 / 50] = [0, 14]
+          // device2 rows -> [0, 10 * 70 / 70] = [0, 10]
+          // union -> [0, 14]
+          expect(result[0].total_pages).toEqual(70);
           expect(result[0].total_read_pages).toEqual(20);
+          expect(result[0].unique_read_pages).toEqual(14);
+          expect(result[0].read_progress_pages).toEqual(14);
         });
       });
     });

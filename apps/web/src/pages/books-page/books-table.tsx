@@ -24,7 +24,7 @@ export function BooksTable({ books }: BooksTableProps): JSX.Element {
           <Table.Th style={{ width: '200px' }} visibleFrom="md">
             Read
           </Table.Th>
-          <Table.Th visibleFrom="md">Pages</Table.Th>
+          <Table.Th visibleFrom="md">Unique pages</Table.Th>
           <Table.Th visibleFrom="md">Total read time</Table.Th>
           <Table.Th visibleFrom="md">Last open</Table.Th>
         </Table.Tr>
@@ -75,14 +75,26 @@ export function BooksTable({ books }: BooksTableProps): JSX.Element {
               </Flex>
             </Table.Td>
             <Table.Td visibleFrom="md">
-              {book.unique_read_pages}
-              <Progress
-                value={(book.unique_read_pages / book.total_pages) * 100}
-                aria-label="Percentage read"
-                aria-valuetext={String((book.unique_read_pages / book.total_pages) * 100)}
-              />
+              <Stack gap={4}>
+                <Tooltip label="Furthest page reached / total pages" withArrow>
+                  <span>
+                    {book.read_progress_pages} / {book.total_pages}
+                  </span>
+                </Tooltip>
+                <Progress
+                  value={(book.read_progress_pages / book.total_pages) * 100}
+                  aria-label="Reading progress"
+                  aria-valuetext={String(
+                    Math.round((book.read_progress_pages / book.total_pages) * 100)
+                  )}
+                />
+              </Stack>
             </Table.Td>
-            <Table.Td visibleFrom="md">{book.total_pages}</Table.Td>
+            <Table.Td visibleFrom="md">
+              <Tooltip label="Distinct pages read (union across devices)" withArrow>
+                <span>{book.unique_read_pages}</span>
+              </Tooltip>
+            </Table.Td>
             <Table.Td visibleFrom="md">
               {book.total_read_time ? shortDuration(getDuration(book.total_read_time)) : 'N/A'}
             </Table.Td>

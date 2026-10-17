@@ -20,6 +20,7 @@ import {
   IconClockHour4,
   IconFile,
   IconHighlight,
+  IconPageBreak,
   IconRefresh,
   IconSettings,
   IconTable,
@@ -28,7 +29,6 @@ import { sum } from 'ramda';
 import { JSX, useState } from 'react';
 import { useParams } from 'react-router';
 import { useBookWithData } from '../../api/use-book-with-data';
-import { getLatestReadPage } from '../../utils/book-progress';
 import { formatSecondsToHumanReadable } from '../../utils/dates';
 import { BookCard } from './book-card';
 import { BookPageAnnotations } from './book-page-annotations';
@@ -153,16 +153,14 @@ export function BookPage(): JSX.Element {
 }
 
 function StatsCard({ book }: { book: BookWithData }): JSX.Element {
-  const bookPages =
-    book?.reference_pages ||
-    book?.device_data.reduce((acc, device) => Math.max(acc, device.pages), 0) ||
-    0;
-
-  const progressPages = getLatestReadPage(book);
+  // Server-provided canonical figures: `total_pages` is the book's page scale
+  // and `read_progress_pages` the furthest position reached on that scale.
+  const bookPages = book.total_pages;
+  const progressPages = book.read_progress_pages;
   const progressPercent = bookPages > 0 ? Math.round((progressPages / bookPages) * 100) : 0;
 
-  const readingDays = book ? Object.keys(book.read_per_day).length : 0;
-  const avgPerDay = readingDays > 0 ? (book?.total_read_time ?? 0) / readingDays : 0;
+  const readingDays = Object.keys(book.read_per_day).length;
+  const avgPerDay = readingDays > 0 ? (book.total_read_time ?? 0) / readingDays : 0;
 
   return (
     <Paper
@@ -225,6 +223,18 @@ function StatsCard({ book }: { book: BookWithData }): JSX.Element {
                 </Text>
                 <Text size="md" fw={600}>
                   {formatSecondsToHumanReadable(avgPerDay)}
+                </Text>
+              </Stack>
+            </Group>
+
+            <Group gap="sm" wrap="nowrap">
+              <IconPageBreak size={18} style={{ flexShrink: 0, opacity: 0.6 }} />
+              <Stack gap={0}>
+                <Text fz={11} c="dimmed" lh={1.2} tt="uppercase" fw="bold">
+                  Unique pages read
+                </Text>
+                <Text size="md" fw={600}>
+                  {book.unique_read_pages}
                 </Text>
               </Stack>
             </Group>
