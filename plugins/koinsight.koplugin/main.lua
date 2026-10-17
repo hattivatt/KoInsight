@@ -14,6 +14,25 @@ local koinsight = WidgetContainer:extend({
   is_doc_only = false,
 })
 
+-- The file manager and the reader each instantiate this plugin, so a broadcast
+-- event reaches two live instances; collapse them into a single sync.
+local QUIET_SYNC_INTERVAL = 5 -- seconds
+local last_quiet_sync = 0
+
+-- Closing a document only quits KOReader when there is nothing left to show;
+-- when a file manager is there (or comes back), the reader goes back to it.
+local function app_is_quitting()
+  local ok_reader, ReaderUI = pcall(require, "apps/reader/readerui")
+  if ok_reader and ReaderUI.instance then
+    return false
+  end
+  local ok_filemanager, FileManager = pcall(require, "apps/filemanager/filemanager")
+  if ok_filemanager and FileManager.instance then
+    return false
+  end
+  return true
+end
+
 function koinsight:init()
   self:onDispatcherRegisterActions()
   self.ui.menu:registerToMainMenu(self)
@@ -71,18 +90,37 @@ function koinsight:addToMainMenu(menu_items)
           self.koinsight_settings:editTimeoutDialog()
         end,
       },
+      -- 5) Sync on exit (on desktops quitting KOReader is not a power event)
+      {
+        text = _("Sync on exit"),
+        checked_func = function()
+          return self.koinsight_settings:getSyncOnExitEnabled()
+        end,
+        callback = function()
+          self.koinsight_settings:toggleSyncOnExit()
+        end,
+      },
 
-      -- 5) Set server URL
+      -- 6) Set server URL
       {
         text = _("Set server URL"),
         keep_menu_open = true,
-        separator = true, -- separator line *after* this item (before "About")
         callback = function()
           self.koinsight_settings:editServerSettings()
         end,
       },
 
-      -- 6) About KoInsight
+      -- 7) Set credentials for HTTP Basic auth
+      {
+        text = _("Set credentials (basic auth)…"),
+        keep_menu_open = true,
+        separator = true, -- separator line *after* this item (before "About")
+        callback = function()
+          self.koinsight_settings:editBasicAuthDialog()
+        end,
+      },
+
+      -- 8) About KoInsight
       {
         text = _("About KoInsight"),
         keep_menu_open = true,
@@ -133,6 +171,7 @@ function koinsight:performFullSync()
   local NetworkMgr = require("ui/network/manager")
   NetworkMgr:runWhenOnline(function()
     local ok, err = pcall(function()
+      local auth_header = self.koinsight_settings:getBasicAuthHeader()
       KoInsightUpload.syncAllBooks(url, function(progress)
         -- Update progress UI
         if progress.phase == "syncing" then
@@ -165,7 +204,7 @@ function koinsight:performFullSync()
             }))
           end
         end
-      end)
+      end, auth_header)
     end)
 
     if not ok then
@@ -191,7 +230,7 @@ function koinsight:onSuspend()
   if self.koinsight_settings:getAggressiveSuspendEnabled() then
     self:performAggressiveSyncOnSuspend()
   else
-    self:performSyncOnSuspend()
+    self:performQuietSync()
   end
 end
 
@@ -205,7 +244,7 @@ function koinsight:onPowerOff()
   if self.koinsight_settings:getAggressiveSuspendEnabled() then
     self:performAggressiveSyncOnSuspend()
   else
-    self:performSyncOnSuspend()
+    self:performQuietSync()
   end
 end
 
@@ -219,38 +258,90 @@ function koinsight:onReboot()
   if self.koinsight_settings:getAggressiveSuspendEnabled() then
     self:performAggressiveSyncOnSuspend()
   else
-    self:performSyncOnSuspend()
+    self:performQuietSync()
   end
 end
 
--- Perform the actual sync with error handling
-function koinsight:performSyncOnSuspend()
+-- Quitting KOReader. On desktops and laptops quitting is not a power event:
+-- there is no Suspend, PowerOff or Reboot, so the hooks are "Exit" (the exit
+-- menu entry and gestures) and "Close" (closing the SDL window, Alt+F4).
+function koinsight:performExitSync()
+  if not self.koinsight_settings:getSyncOnExitEnabled() then
+    logger.dbg("[KoInsight] Sync on exit is disabled, skipping")
+    return
+  end
+
+  logger.info("[KoInsight] KOReader quitting - syncing data")
+  self:performQuietSync()
+end
+
+function koinsight:onExit()
+  self:performExitSync()
+end
+
+-- A broadcast "Close" means KOReader is being torn down (closing the SDL
+-- window, Alt+F4). The reader's own instance only ever sees that one plus the
+-- "Close" the reader sends when a document is closed.
+function koinsight:onClose()
+  if not self.document then
+    self:performExitSync()
+    return
+  end
+
+  -- Closing a document is also what quitting looks like when KOReader was
+  -- started with a book and no file manager is around, so wait for the end of
+  -- this tick and sync only if nothing is left to show.
+  UIManager:nextTick(function()
+    if app_is_quitting() then
+      self:performExitSync()
+    end
+  end)
+end
+
+-- Perform a silent sync of the current book, with error handling
+function koinsight:performQuietSync()
+  local now = os.time()
+  if now - last_quiet_sync < QUIET_SYNC_INTERVAL then
+    logger.info("[KoInsight] Sync already ran, skipping duplicate")
+    return
+  end
+  last_quiet_sync = now
+
   -- Check if we have a server URL configured
   local server_url = self.koinsight_settings:getServerURL()
   if not server_url or server_url == "" then
-    logger.info("[KoInsight] No server URL configured, skipping sync on suspend")
+    logger.info("[KoInsight] No server URL configured, skipping sync")
     return
   end
 
   -- Check WiFi connectivity before attempting sync
   if not self:isWiFiConnected() then
-    logger.info("[KoInsight] WiFi not connected, skipping sync on suspend")
+    logger.info("[KoInsight] WiFi not connected, skipping sync")
     return
   end
 
-  -- Perform sync in a protected call to avoid crashing on suspend
-  local success, error_msg = pcall(function()
-    KoInsightUpload.syncCurrentBook(server_url, true) -- true = silent mode
-  end)
+  -- Perform sync in a protected call to avoid crashing the caller
+  local success, ok, status = pcall(
+    KoInsightUpload.syncCurrentBook,
+    server_url,
+    true, -- silent mode
+    self.koinsight_settings:getBasicAuthHeader()
+  )
 
   if not success then
-    message = "Error during auto sync: " .. tostring(error_msg)
+    local message = "Error during auto sync: " .. tostring(ok)
     logger.err("[KoInsight] " .. message)
     UIManager:show(InfoMessage:new({
       text = _(message),
     }))
+  elseif ok then
+    logger.info("[KoInsight] Sync uploaded device and statistics data")
   else
-    logger.info("[KoInsight] Suspend sync completed successfully")
+    logger.err(
+      "[KoInsight] Sync failed:",
+      tostring(status and status.statistics.response),
+      tostring(status and (status.statistics.code or status.device.code))
+    )
   end
 end
 
@@ -299,7 +390,7 @@ function koinsight:performAggressiveSyncOnSuspend()
 
     -- Perform the actual sync
     logger.info("[KoInsight] Performing sync")
-    KoInsightUpload.syncCurrentBook(server_url, true) -- true = silent mode
+    KoInsightUpload.syncCurrentBook(server_url, true, self.koinsight_settings:getBasicAuthHeader()) -- true = silent mode
 
     -- Turn off WiFi if we turned it on
     if not was_wifi_on then

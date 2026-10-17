@@ -111,10 +111,14 @@ end
 
 local function flush_statistics_to_db()
   local ok, ReaderUI = pcall(require, "apps/reader/readerui")
-  if not ok or not ReaderUI or not ReaderUI.instance then return end
+  if not ok or not ReaderUI or not ReaderUI.instance then
+    return
+  end
   local ui = ReaderUI.instance
   if ui and ui.statistics and ui.statistics.is_doc then
-    local ok_flush, err = pcall(function() ui.statistics:insertDB() end)
+    local ok_flush, err = pcall(function()
+      ui.statistics:insertDB()
+    end)
     if ok_flush then
       logger.info("[KoInsight] Flushed statistics to DB before sync")
     else

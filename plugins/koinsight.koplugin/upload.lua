@@ -14,11 +14,15 @@ local API_DEVICE_LOCATION = "/api/plugin/device"
 
 local KoInsightUpload = {}
 
-function get_headers(body)
+-- auth_header is an optional "Authorization" value, e.g. "Basic dXNlcjpwYXNz"
+function get_headers(body, auth_header)
   local headers = {
     ["Content-Type"] = "application/json",
     ["Content-Length"] = tostring(#body),
   }
+  if auth_header then
+    headers["Authorization"] = auth_header
+  end
   return headers
 end
 
@@ -34,7 +38,7 @@ function render_response_message(response, prefix, default_text)
   }))
 end
 
-function send_device_data(server_url, silent)
+function send_device_data(server_url, silent, auth_header)
   local url = server_url .. API_DEVICE_LOCATION
   local body = {
     id = G_reader_settings:readSetting("device_id"),
@@ -43,14 +47,16 @@ function send_device_data(server_url, silent)
   }
   body = JSON.encode(body)
 
-  local ok, response = callApi("POST", url, get_headers(body), body)
+  local ok, response, code = callApi("POST", url, get_headers(body, auth_header), body)
 
   if ok ~= true and not silent then
     render_response_message(response, "Error:", "Unable to register device.")
   end
+
+  return ok, response, code
 end
 
-function send_statistics_data(server_url, silent)
+function send_statistics_data(server_url, silent, auth_header)
   local url = server_url .. API_UPLOAD_LOCATION
 
   -- Get annotations from currently opened book
@@ -74,7 +80,7 @@ function send_statistics_data(server_url, silent)
 
   body = JSON.encode(body)
 
-  local ok, response = callApi("POST", url, get_headers(body), body)
+  local ok, response, code = callApi("POST", url, get_headers(body, auth_header), body)
 
   if not silent then
     if ok then
@@ -83,10 +89,19 @@ function send_statistics_data(server_url, silent)
       render_response_message(response, "Error:", "Data upload failed.")
     end
   end
+
+  return ok, response, code
 end
 
 -- Send annotations for a specific book
-function send_book_annotations(server_url, book_md5, annotations, total_pages, book_metadata)
+function send_book_annotations(
+  server_url,
+  book_md5,
+  annotations,
+  total_pages,
+  book_metadata,
+  auth_header
+)
   local url = server_url .. API_UPLOAD_LOCATION
   local device_id = G_reader_settings:readSetting("device_id")
 
@@ -131,11 +146,11 @@ function send_book_annotations(server_url, book_md5, annotations, total_pages, b
   }
 
   body = JSON.encode(body)
-  return callApi("POST", url, get_headers(body), body)
+  return callApi("POST", url, get_headers(body, auth_header), body)
 end
 
 -- Bulk sync all books with annotations
-function bulk_sync_all_books(server_url, progress_callback)
+function bulk_sync_all_books(server_url, progress_callback, auth_header)
   logger.info("[KoInsight] Starting bulk sync of all books")
 
   -- Get all books with annotations from reading history
@@ -190,7 +205,8 @@ function bulk_sync_all_books(server_url, progress_callback)
       book_info.md5,
       book_info.annotations,
       book_info.total_pages,
-      book_info.book_metadata -- Pass metadata from sidecar
+      book_info.book_metadata, -- Pass metadata from sidecar
+      auth_header
     )
 
     if ok then
@@ -229,7 +245,7 @@ function bulk_sync_all_books(server_url, progress_callback)
 end
 
 -- Sync current book only (stats + current book annotations)
-function KoInsightUpload.syncCurrentBook(server_url, silent)
+function KoInsightUpload.syncCurrentBook(server_url, silent, auth_header)
   if silent == nil then
     silent = false
   end
@@ -240,12 +256,18 @@ function KoInsightUpload.syncCurrentBook(server_url, silent)
     return
   end
 
-  send_device_data(server_url, silent)
-  send_statistics_data(server_url, silent)
+  local device_ok, device_response, device_code = send_device_data(server_url, silent, auth_header)
+  local stats_ok, stats_response, stats_code = send_statistics_data(server_url, silent, auth_header)
+
+  return device_ok == true and stats_ok == true,
+    {
+      device = { ok = device_ok, response = device_response, code = device_code },
+      statistics = { ok = stats_ok, response = stats_response, code = stats_code },
+    }
 end
 
 -- Sync all books (stats + all book annotations)
-function KoInsightUpload.syncAllBooks(server_url, progress_callback)
+function KoInsightUpload.syncAllBooks(server_url, progress_callback, auth_header)
   if server_url == nil or server_url == "" then
     UIManager:show(InfoMessage:new({
       text = _("Please configure the server URL first."),
@@ -253,14 +275,14 @@ function KoInsightUpload.syncAllBooks(server_url, progress_callback)
     return
   end
 
-  send_device_data(server_url, true) -- silent
+  send_device_data(server_url, true, auth_header) -- silent
 
   -- First, sync all statistics data from the database
   -- This includes all reading progress (page_stat_data) and book metadata
-  send_statistics_data(server_url, true) -- silent
+  send_statistics_data(server_url, true, auth_header) -- silent
 
   -- Then, sync all annotations for all books
-  bulk_sync_all_books(server_url, progress_callback)
+  bulk_sync_all_books(server_url, progress_callback, auth_header)
 end
 
 return KoInsightUpload
