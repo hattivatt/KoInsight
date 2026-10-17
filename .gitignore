@@ -14,3 +14,7 @@ node_modules
 
 
 *.tsbuildinfo
+
+# nix build result
+result
+result-*

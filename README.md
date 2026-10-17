@@ -160,3 +160,18 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for development setup and instructions.
 (a.k.a things I want to do)
 
 See [Project board](https://github.com/users/GeorgeSG/projects/2)
+
+## Nix
+
+KoInsight is available as a Nix flake (a pinned `nixpkgs`, Node 22, and a source build of the native `better-sqlite3` addon):
+
+```bash
+nix build .#                    # -> ./result/bin/koinsight
+DATA_PATH=./data PORT=3000 HOSTNAME=127.0.0.1 ./result/bin/koinsight
+
+nix run .#                      # build & run in one step
+```
+
+If `DATA_PATH` is unset it defaults to `${XDG_DATA_HOME:-$HOME/.local/share}/koinsight`; `NODE_ENV=production` is set automatically, so migrations create `prod.sqlite3` there. `PORT` (default `3000`), `HOSTNAME` (default `127.0.0.1`) and `MAX_FILE_SIZE_MB` (default `100`) behave as described in [Configuration](#configuration).
+
+For development there is a [devenv](https://devenv.sh/) environment. The devenv files live in the parent directory of this repository, so run `devenv shell` from there and then `cd KoInsight` to enter the project. It provides Node 22, the node-gyp toolchain for `better-sqlite3`, and `devenv up` (also run from the parent directory) to start the server (`:3001`) and web (`:3000`) dev processes.
