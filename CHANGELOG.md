@@ -1,10 +1,20 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.5] - 2026-10-18
 
 ### New Features
 
 Machine-readable API documentation: `GET /api/schema` returns a full JSON description of the HTTP API (every group — kosync, plugin, books/covers, stats, devices, upload, open-library, ai — with auth overview, request/response shapes and a compact type reference). The `--print-api` server flag prints the same JSON and exits, without booting the server or touching the database.
+
+KOReader plugin: optional HTTP Basic credentials for the plugin API requests (`/api/plugin/import`, `/api/plugin/device`), sent as an `Authorization` header through a reverse proxy. The kosync progress flow is untouched, and the server settings dialog gains the corresponding credentials fields.
+
+KOReader plugin: "Sync on exit" plus a throttled (5 s) quiet sync on suspend/power-off, so statistics and annotations are flushed without noisy dialogs.
+
+### Fixed
+
+Covers: multer no longer creates the covers directory at import time (lazy per-request destination), and the covers service tolerates a missing covers directory. Previously merely importing the app (e.g. the `--print-api` flag) touched `DATA_PATH`, and cover lookups failed if the directory had not been created yet.
+
+KOReader plugin: the configured password is no longer printed in the plugin debug logs.
 
 ## [0.2.4] - 2026-10-17
 
@@ -66,6 +76,7 @@ API page fields changed: `read_progress_pages` is new; `total_read_pages` now re
 
 See git history for changes prior to v0.2.0.
 
+[0.2.5]: https://github.com/hattivatt/KoInsight/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/hattivatt/KoInsight/compare/v0.2.2...v0.2.4
 [0.2.2]: https://github.com/hattivatt/KoInsight/compare/v0.2.0...v0.2.2
 [0.2.0]: https://github.com/GeorgeSG/koinsight/releases/tag/v0.2.0
