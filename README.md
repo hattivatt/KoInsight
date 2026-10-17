@@ -20,10 +20,6 @@ We'd like to thank everyone who has used and supported the project. For those lo
 </p>
 
 <p align="center">
-  <a href='https://coveralls.io/github/GeorgeSG/KoInsight'><img src='https://coveralls.io/repos/github/GeorgeSG/KoInsight/badge.svg' alt='Coverage Status' /></a>
-</p>
-
-<p align="center">
    <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/screenshots/stats_1_d.png">
     <img src="images/screenshots/stats_1_l.png" width="100%">

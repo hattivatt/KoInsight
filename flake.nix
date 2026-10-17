@@ -46,7 +46,7 @@
 
           npmDeps = pkgs.fetchNpmDeps {
             inherit (finalAttrs) src;
-            hash = "sha256-RhqYIm8b3vp2otxvuLnGcUdGWilBjHDjQsG1lUiOaCg=";
+            hash = "sha256-0jZ+B3Ufe+eYFPs2+tq0cJLYX56HRy/2v8gjnq7ENUc=";
           };
 
           # Node 22 is required by the project (`engines.node >= 22`).
@@ -101,10 +101,15 @@
             rm -f "$root/node_modules/@koinsight/common"
             mkdir -p "$root/node_modules/@koinsight/common"
             cp -r packages/common/dist "$root/node_modules/@koinsight/common/dist"
-            cat > "$root/node_modules/@koinsight/common/package.json" <<'EOF'
+
+            # Take the version from the real workspace package.json so the
+            # synthetic copy never drifts from the released version.
+            common_version="$(node -p "require('./packages/common/package.json').version")"
+
+            cat > "$root/node_modules/@koinsight/common/package.json" <<EOF
             {
               "name": "@koinsight/common",
-              "version": "v0.2.3",
+              "version": "''${common_version}",
               "type": "module",
               "exports": {
                 "./types": "./dist/types/index.js",
