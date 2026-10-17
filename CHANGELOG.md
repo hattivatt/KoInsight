@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.4] - 2026-10-17
 
 ### New Features
 
@@ -60,6 +60,6 @@ API page fields changed: `read_progress_pages` is new; `total_read_pages` now re
 
 See git history for changes prior to v0.2.0.
 
-[Unreleased]: https://github.com/GeorgeSG/koinsight/compare/v0.2.2...HEAD
-[0.2.2]: https://github.com/GeorgeSG/koinsight/compare/v0.2.0...v0.2.2
+[0.2.4]: https://github.com/hattivatt/KoInsight/compare/v0.2.2...v0.2.4
+[0.2.2]: https://github.com/hattivatt/KoInsight/compare/v0.2.0...v0.2.2
 [0.2.0]: https://github.com/GeorgeSG/koinsight/releases/tag/v0.2.0

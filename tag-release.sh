@@ -25,12 +25,27 @@ git add .
 git commit -m "chore: release $VERSION"
 
 # === Tag and push ===
-# Pushing the tag triggers .github/workflows/release.yaml, which builds and
-# publishes the multi-arch image to ghcr.io/ko-insight/koinsight.
+# Pushing the tag is what triggers the release: there is no registry job in
+# this fork anymore, CI (.github/workflows/ci.yaml) still runs the test suite.
 git tag "$VERSION"
 git push origin master
 git push origin "$VERSION"
 
-echo "✅ Tagged $VERSION and pushed."
-echo "🚀 GitHub Actions is now building and publishing ghcr.io/ko-insight/koinsight:$VERSION"
-echo "   Track it: https://github.com/Ko-Insight/KoInsight/actions"
+# === Actions link (derived from origin, GitHub only) ===
+ORIGIN=$(git remote get-url origin 2>/dev/null || true)
+ACTIONS_URL=""
+case "$ORIGIN" in
+  git@github.com:*) ACTIONS_URL="https://github.com/${ORIGIN#git@github.com:}" ;;
+  ssh://git@github.com/*) ACTIONS_URL="https://github.com/${ORIGIN#ssh://git@github.com/}" ;;
+  https://github.com/*|http://github.com/*) ACTIONS_URL="$ORIGIN" ;;
+esac
+if [[ -n "$ACTIONS_URL" ]]; then
+  ACTIONS_URL="${ACTIONS_URL%.git}/actions"
+fi
+
+echo "✅ Tag $VERSION pushed"
+if [[ -n "$ACTIONS_URL" ]]; then
+  echo "🔎 Check CI runs: $ACTIONS_URL"
+else
+  echo "🔎 Check CI runs in your repository's Actions tab."
+fi

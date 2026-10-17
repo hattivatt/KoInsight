@@ -38,7 +38,7 @@ We'd like to thank everyone who has used and supported the project. For those lo
 - 📱 Multi-device support
 - 📤 Manual .sqlite upload supported
 - ♻️ Act as a KOReader (kosync) sync server
-- 🏠 Fully self-hostable (Docker image available)
+- 🏠 Fully self-hostable (Docker or Nix)
 
 # Screenshots
 <p><strong>Note:</strong>As of 2025-10-15 covers are not (yet) automatically displayed, as they are not part of the KOReader-generated database. If you want to see covers, you'll need to add them once per book. The UI offers a search by title and upload of images under the tab 'Cover Selector'.</p>
@@ -66,22 +66,20 @@ See all [screenshots](/images/screenshots/)
 
 
 # Installation
-Using [Docker](https://docker.com) and [Docker Compose](https://docs.docker.com/compose/)
 
-Add the following to your `compose.yaml` file:
+This fork does not publish prebuilt Docker images. Instead, build and run it
+locally with [Docker](https://docker.com) and [Docker Compose](https://docs.docker.com/compose/)
+(the bundled `compose.yaml` has `build: .`):
 
-```yaml
-name: koinsight
-services:
-  koinsight:
-    image: ghcr.io/ko-insight/koinsight:latest
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./data:/app/data
+```bash
+docker compose up -d
 ```
-Run `docker compose up -d`.
+
+Alternatively, build and run the [Nix package](#nix):
+
+```bash
+nix build .#
+```
 
 # Configuration
 KoInsight can be configured using the following environment variables:
