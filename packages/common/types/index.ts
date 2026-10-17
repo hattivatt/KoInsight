@@ -1,4 +1,5 @@
 export * from './annotation.js';
+export * from './api-description.js';
 export * from './book-device.js';
 export * from './book.js';
 export * from './books-api.js';

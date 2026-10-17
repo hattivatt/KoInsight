@@ -5,6 +5,10 @@ import { appConfig } from '../../config';
 
 export class CoversService {
   static async get(book: Book): Promise<string | null> {
+    if (!existsSync(appConfig.coversPath)) {
+      return null;
+    }
+
     const files = await promises.readdir(appConfig.coversPath);
     const file = files.find((f) => f.startsWith(book.md5));
 
@@ -16,6 +20,10 @@ export class CoversService {
   }
 
   static async deleteExisting(book: Book) {
+    if (!existsSync(appConfig.coversPath)) {
+      return;
+    }
+
     const files = await promises.readdir(appConfig.coversPath);
     const file = files.find((f) => f.startsWith(book.md5));
 

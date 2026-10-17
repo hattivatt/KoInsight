@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response, Router } from 'express';
-import { unlink } from 'fs';
+import { mkdirSync, unlink } from 'fs';
 import multer from 'multer';
 import { appConfig } from '../../config';
 import { getBookById } from '../get-book-by-id-middleware';
@@ -27,7 +27,15 @@ router.get('/', getBookById, async (req: Request, res: Response) => {
 });
 
 const upload = multer({
-  dest: appConfig.coversPath,
+  // Lazy destination: `dest: …` would mkdir the covers directory at import time
+  // (module load), which would make merely importing the app touch DATA_PATH
+  // (e.g. `--print-api`). Create it per-request instead.
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      mkdirSync(appConfig.coversPath, { recursive: true });
+      cb(null, appConfig.coversPath);
+    },
+  }),
   fileFilter: (_req, file, cb) => {
     const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif'];
     if (

@@ -1,6 +1,6 @@
 # KoInsight is archived
 
-While we love the work we did with KoInsight, we've struggled to find the time and energy needed to continue its development. 
+While we love the work we did with KoInsight, we've struggled to find the time and energy needed to continue its development.
 
 As a result, we've decided to discontinue active development and archive KoInsight for the foreseeable future.
 
@@ -37,6 +37,7 @@ We'd like to thank everyone who has used and supported the project. For those lo
 - 🏠 Fully self-hostable (Docker or Nix)
 
 # Screenshots
+
 <p><strong>Note:</strong>As of 2025-10-15 covers are not (yet) automatically displayed, as they are not part of the KOReader-generated database. If you want to see covers, you'll need to add them once per book. The UI offers a search by title and upload of images under the tab 'Cover Selector'.</p>
 
 <table>
@@ -60,7 +61,6 @@ We'd like to thank everyone who has used and supported the project. For those lo
 
 See all [screenshots](/images/screenshots/)
 
-
 # Installation
 
 This fork does not publish prebuilt Docker images. Instead, build and run it
@@ -78,16 +78,17 @@ nix build .#
 ```
 
 # Configuration
+
 KoInsight can be configured using the following environment variables:
 
 - `HOSTNAME`: The hostname or IP address where the server will listen.<br>
-  *Default:* `localhost`
+  _Default:_ `localhost`
 - `PORT`: The port number for the web server.<br>
-  *Default:* `3000`
+  _Default:_ `3000`
 - `MAX_FILE_SIZE_MB`: Maximum allowed size (in megabytes) for uploaded files.<br>
-  *Default:* `100`
+  _Default:_ `100`
 - `DATA_PATH`: Path to the directory where KoInsight data (such as stats or uploads) will be stored.<br>
-  *Default:* `../../../data` or `/app/data` in Docker.
+  _Default:_ `../../../data` or `/app/data` in Docker.
 
 # Usage
 
@@ -100,31 +101,35 @@ Currently, there are two ways to do this:
 2. **Sync plugin**: Install and configure the KoInsight plugin in KOReader to sync your data directly.
 
 ### KOReader sync plugin
+
 The KoInsight plugin syncs your reading statistics from KOReader to KoInsight.
 
 **Installation:**
+
 1. Download the plugin ZIP bundle from the **"KOReader Plugin"** button in the main menu.
 1. Extract it into your `KOReader/plugins/` folder.
 1. For the plugin to be installed correctly, the file structure should look like this:
-    ```
-    koreader
-    └── plugins
-        └── koinsight.koplugin
-            ├── _meta.lua
-            ├── main.lua
-            └── ...
-    ```
+   ```
+   koreader
+   └── plugins
+       └── koinsight.koplugin
+           ├── _meta.lua
+           ├── main.lua
+           └── ...
+   ```
 
 **Usage:**
+
 1. Open the KOReader app.
 1. Go to the **Tools** menu and open **KoInsight** (it should be below "More tools").
 1. Click **Configure KoInsight** and enter your KoInsight server URL (e.g., `http://server-ip:3000`).
-    - ⚠️ Make sure your KOReader device has network access to the server.
+   - ⚠️ Make sure your KOReader device has network access to the server.
 1. Click **Sync** in the KoInsight plugin menu.
 
 Reload the KoInsight web dashboard. If everything went well (🤞), your data should appear.
 
 ### Manual Upload: `statistics.sqlite`
+
 1. Open a file manager on your KOReader device.
 1. Navigate to the `KOReader/settings/` folder.
 1. Locate the `statistics.sqlite` file.
@@ -135,7 +140,6 @@ Reload the KoInsight web dashboard. If everything went well (🤞), your data sh
 Every time you need to reupload data, you would need to upload the statistics database file again.
 
 Uploads are attributed to the `manual-upload` pseudo-device by default. To attribute an upload to the real device it came from, send the `deviceId` and/or `deviceName` multipart fields (or an `X-Device-Id` header) with the upload. Books also auto-fill their `reference_pages` at ingest when unset, so page counts from devices with different paginations are merged on a common scale.
-
 
 ## Use as progress sync server
 
@@ -149,7 +153,32 @@ You can use your KoInsight instance as a KOReader sync server. This allows you t
 
 The progress sync data should appear in the **"Progress syncs"** page in KoInsight.
 
+## API documentation
+
+The server exposes a machine-readable description of its whole HTTP API at
+`GET /api/schema`:
+
+```bash
+curl -s http://localhost:3000/api/schema | jq
+```
+
+The same JSON can be printed without starting the server or touching the
+database (useful offline / for tooling):
+
+```bash
+npm --workspace=server run build
+node apps/server/dist/app.js --print-api
+```
+
+It lists every endpoint, grouped by area (kosync, plugin, books/covers, stats,
+devices, upload, open-library, ai), with request/response shapes, auth
+requirements and a compact type reference. Most endpoints are unauthenticated
+by design — KoInsight is single-user and expected to sit behind a reverse proxy
+(or the host's own access control). Only the KoSync progress endpoints require
+the `x-auth-user` / `x-auth-key` headers.
+
 # Development
+
 See [DEVELOPMENT.md](DEVELOPMENT.md) for development setup and instructions.
 
 ## Retro device assignment
@@ -165,6 +194,7 @@ npm --workspace=server run retro-devices -- \
 It is a dry-run by default; add `--apply` to write (a backup is taken first). Writing to the production database additionally requires `--force-prod`. Run with `--help` for all options.
 
 # Roadmap
+
 (a.k.a things I want to do)
 
 See [Project board](https://github.com/users/GeorgeSG/projects/2)

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+Machine-readable API documentation: `GET /api/schema` returns a full JSON description of the HTTP API (every group — kosync, plugin, books/covers, stats, devices, upload, open-library, ai — with auth overview, request/response shapes and a compact type reference). The `--print-api` server flag prints the same JSON and exits, without booting the server or touching the database.
+
 ## [0.2.4] - 2026-10-17
 
 ### New Features

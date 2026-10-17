@@ -4,6 +4,8 @@ import { Server } from 'http';
 import morgan from 'morgan';
 import path from 'path';
 import { openAiRouter } from './ai/open-ai-router';
+import { apiDescription } from './api-docs/api-description';
+import { apiDocsRouter } from './api-docs/api-docs-router';
 import { booksRouter } from './books/books-router';
 import { appConfig } from './config';
 import { devicesRouter } from './devices/devices-router';
@@ -34,6 +36,7 @@ async function setupServer() {
   app.use('/api/upload', uploadRouter);
   app.use('/api/open-library', openLibraryRouter);
   app.use('/api/ai', openAiRouter);
+  app.use('/api/schema', apiDocsRouter);
 
   // Serve react app
   app.use(express.static(appConfig.webBuildPath));
@@ -58,6 +61,13 @@ function stopServer(signal: NodeJS.Signals, server: Server) {
 }
 
 async function main() {
+  // Offline self-description: print the API description and exit before any
+  // database or HTTP setup, so it works without a configured database.
+  if (process.argv.includes('--print-api')) {
+    console.log(JSON.stringify(apiDescription, null, 2));
+    process.exit(0);
+  }
+
   console.log('Running database migrations');
   await db.migrate.latest({ directory: path.join(__dirname, 'db', 'migrations') });
   console.log('Database migrated successfully');
