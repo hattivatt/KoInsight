@@ -20,7 +20,7 @@
       packages = forAllSystems (pkgs: rec {
         koinsight = pkgs.buildNpmPackage (finalAttrs: {
           pname = "koinsight";
-          version = "0.2.3";
+          version = "0.2.4";
 
           # Explicit filtered source: `./.` would silently follow flake git
           # tracking (untracked files) and would drag in node_modules/dist.
