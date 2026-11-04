@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.6] - 2026-11-04
+
+### Fixed
+
+Reading progress: `read_progress_pages` now reports the page of the latest reading event (the current page) instead of the furthest page ever reached. Jumping to a footnote and returning to the actual page no longer leaves the progress indicator stuck at the footnote page (e.g. 961 instead of 176). The web UI labels and the shared types were updated to match, and calendar-day page counts now use the union of the day's read pages instead of the min–max envelope, which a footnote jump would otherwise inflate.
+
 ## [0.2.5] - 2026-10-18
 
 ### New Features
