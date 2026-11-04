@@ -365,7 +365,8 @@ export const apiDescription: ApiDescription = {
         {
           name: 'read_progress_pages',
           type: 'number',
-          description: 'Furthest position reached, on the canonical page scale.',
+          description:
+            'Current position (page of the latest reading event), on the canonical page scale.',
         },
         { name: 'notes', type: 'number' },
         { name: 'highlights', type: 'number' },

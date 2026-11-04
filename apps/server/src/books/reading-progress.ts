@@ -110,9 +110,18 @@ export function getUniqueReadPages(
 }
 
 /**
- * Furthest book position reached, expressed on the canonical scale
- * ("furthest position reached"). Rows that cannot be scaled fall back to their
- * raw page number so a number is still produced.
+ * Current book position ("current page"), i.e. the page of the latest reading
+ * event, expressed on the canonical scale.
+ *
+ * The latest event is the row with the greatest `start_time`. When several rows
+ * share that timestamp (a reading session row and a footnote jump can), the one
+ * with the highest scaled page wins. Rows that cannot be scaled fall back to
+ * their raw page number so a number is still produced.
+ *
+ * `start_time` normally arrives in milliseconds (`StatsRepository` normalises
+ * the DB's seconds to ms), but callers/tests may pass seconds. Values below
+ * 1e10 are treated as Unix seconds and converted to ms (1e10 ms is 1970-04-26,
+ * so any real reading timestamp in ms is well above the threshold).
  */
 export function getReadProgressPages(
   book: Book,
@@ -120,15 +129,23 @@ export function getReadProgressPages(
   stats: PageStat[]
 ): number {
   const scale = getScale(book, bookDevices, stats);
-  let max = 0;
+  const secondsThreshold = 1e10;
+  let latestTime = -Infinity;
+  let latestPage = 0;
 
   for (const stat of stats ?? []) {
+    const rawTime = stat.start_time ?? 0;
+    const time = rawTime < secondsThreshold ? rawTime * 1000 : rawTime;
     const end =
       scale > 0 && stat.total_pages > 0 ? (stat.page * scale) / stat.total_pages : stat.page;
-    if (end > max) max = end;
+
+    if (time > latestTime || (time === latestTime && end > latestPage)) {
+      latestTime = time;
+      latestPage = end;
+    }
   }
 
-  return Math.round(max);
+  return Math.round(latestPage);
 }
 
 /**

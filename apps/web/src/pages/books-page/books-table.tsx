@@ -76,7 +76,7 @@ export function BooksTable({ books }: BooksTableProps): JSX.Element {
             </Table.Td>
             <Table.Td visibleFrom="md">
               <Stack gap={4}>
-                <Tooltip label="Furthest page reached / total pages" withArrow>
+                <Tooltip label="Current page / total pages" withArrow>
                   <span>
                     {book.read_progress_pages} / {book.total_pages}
                   </span>

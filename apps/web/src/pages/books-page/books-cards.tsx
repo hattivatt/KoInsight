@@ -89,13 +89,11 @@ export function BooksCards({ books }: BooksCardsProps): JSX.Element {
                   </Group>
                 )}
                 <Group wrap="nowrap" gap={8}>
-                  <Tooltip label="Reading progress (furthest page)" position="top" withArrow>
+                  <Tooltip label="Reading progress" position="top" withArrow>
                     <IconProgress stroke={1.5} size={16} />
                   </Tooltip>
                   <span className={style.Attribute}>
-                    {book.read_progress_pages}
-                    &nbsp;/&nbsp;
-                    {book.total_pages} pages read
+                    on page {book.read_progress_pages} of {book.total_pages}
                   </span>
                 </Group>
                 <Group wrap="nowrap" gap={8}>

@@ -104,8 +104,13 @@ export function getScaledPagesRead(
 }
 
 /**
- * Canonical-scale page range covered by a set of rows. Used for calendar day
+ * Canonical-scale display range covered by a set of rows. Used for calendar day
  * tooltips, which the server does not provide on a per-day basis.
+ *
+ * The range is derived from the *union* of the rows' intervals: its start is
+ * the first unioned range's start and its end is the last unioned range's end.
+ * A footnote jump can make the union disjoint, so `end - start` is NOT the
+ * number of pages read for the day — use `getScaledPagesRead` for that count.
  */
 export function getScaledPageRange(
   book: BookScaleInput | undefined,
@@ -119,7 +124,5 @@ export function getScaledPageRange(
     return [0, 0];
   }
 
-  const start = Math.min(...ranges.map(([rangeStart]) => rangeStart));
-  const end = Math.max(...ranges.map(([, rangeEnd]) => rangeEnd));
-  return [start, end];
+  return [ranges[0][0], ranges[ranges.length - 1][1]];
 }

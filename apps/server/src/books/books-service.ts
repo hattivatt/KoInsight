@@ -58,9 +58,8 @@ export class BooksService {
   }
 
   /**
-   * Furthest book position reached, expressed on the canonical scale. For the
-   * reported book this is 666: laptop's furthest page 435/751 -> 664.95,
-   * phone's 666/1148 -> 666.
+   * Current book position (page of the latest reading event), expressed on the
+   * canonical scale. See `reading-progress.ts` for the latest-event semantics.
    */
   static getReadProgressPages(book: Book, bookDevices: BookDevice[], stats: PageStat[]): number {
     return getReadProgressPages(book, bookDevices, stats);

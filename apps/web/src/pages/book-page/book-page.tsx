@@ -154,7 +154,7 @@ export function BookPage(): JSX.Element {
 
 function StatsCard({ book }: { book: BookWithData }): JSX.Element {
   // Server-provided canonical figures: `total_pages` is the book's page scale
-  // and `read_progress_pages` the furthest position reached on that scale.
+  // and `read_progress_pages` is the current page (latest reading event).
   const bookPages = book.total_pages;
   const progressPages = book.read_progress_pages;
   const progressPercent = bookPages > 0 ? Math.round((progressPages / bookPages) * 100) : 0;
@@ -189,7 +189,7 @@ function StatsCard({ book }: { book: BookWithData }): JSX.Element {
                     {progressPercent}%
                   </Text>
                   <Text size="xs" c="dimmed" ta="center" fw="bold">
-                    {progressPages} / {bookPages} <br /> pages read
+                    page {progressPages} of {bookPages}
                   </Text>
                 </Stack>
               }

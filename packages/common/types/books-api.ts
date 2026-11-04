@@ -15,7 +15,7 @@ type Stats = {
    */
   total_read_pages: number;
   unique_read_pages: number;
-  /** Furthest book position reached, expressed on the canonical page scale. */
+  /** Current book position (page of the latest reading event), on the canonical page scale. */
   read_progress_pages: number;
   notes: number;
   highlights: number;

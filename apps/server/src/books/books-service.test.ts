@@ -236,7 +236,36 @@ describe(BooksService.withData, () => {
   });
 
   describe('read_progress_pages', () => {
-    it('returns the furthest position on the canonical scale', async () => {
+    it('returns the current page, not the furthest page reached', async () => {
+      const book1 = await createBook(db, { title: 'Test Book 1', reference_pages: 1093 });
+      const bookDevice = await createBookDevice(db, book1, device, {
+        book_md5: book1.md5,
+        pages: 1093,
+      });
+
+      // Jump to a footnote on page 961, then return to page 176.
+      await createPageStat(db, book1, bookDevice, device, {
+        page: 176,
+        total_pages: 1093,
+        start_time: 1000,
+      });
+      await createPageStat(db, book1, bookDevice, device, {
+        page: 961,
+        total_pages: 1093,
+        start_time: 2000,
+      });
+      await createPageStat(db, book1, bookDevice, device, {
+        page: 176,
+        total_pages: 1093,
+        start_time: 3000,
+      });
+
+      const result = await BooksService.withData(book1);
+
+      expect(result.read_progress_pages).toEqual(176);
+    });
+
+    it('scales the latest position onto the canonical scale', async () => {
       const book1 = await createBook(db, { title: 'Test Book 1', reference_pages: 100 });
       const bookDevice = await createBookDevice(db, book1, device, {
         book_md5: book1.md5,
@@ -244,7 +273,11 @@ describe(BooksService.withData, () => {
       });
 
       // page 40 of a 200-page layout -> 40 * 100 / 200 = 20 reference pages
-      await createPageStat(db, book1, bookDevice, device, { page: 40, total_pages: 200 });
+      await createPageStat(db, book1, bookDevice, device, {
+        page: 40,
+        total_pages: 200,
+        start_time: 1000,
+      });
 
       const result = await BooksService.withData(book1);
 

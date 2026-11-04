@@ -251,10 +251,15 @@ describe(BooksRepository, () => {
       it('counts reading events with a single device and page stats', async () => {
         const bookDevice1 = await createBookDevice(db, book1, device1, { pages: 50 });
 
-        // Each page is twice as big as the 100 reference pages
+        // Each page is twice as big as the 100 reference pages. `start_time`
+        // ascends with the page so the latest event is the highest page.
         await Promise.all(
           range(0, 10).map((i) =>
-            createPageStat(db, book1, bookDevice1, device1, { page: i + 1, total_pages: 50 })
+            createPageStat(db, book1, bookDevice1, device1, {
+              page: i + 1,
+              total_pages: 50,
+              start_time: i + 1,
+            })
           )
         );
 
@@ -272,12 +277,20 @@ describe(BooksRepository, () => {
         const bookDevice2 = await createBookDevice(db, book1, device2, { pages: 70 });
         await Promise.all(
           range(0, 10).map((i) =>
-            createPageStat(db, book1, bookDevice1, device1, { page: i + 1, total_pages: 50 })
+            createPageStat(db, book1, bookDevice1, device1, {
+              page: i + 1,
+              total_pages: 50,
+              start_time: i + 1,
+            })
           )
         );
         await Promise.all(
           range(0, 10).map((i) =>
-            createPageStat(db, book1, bookDevice2, device2, { page: i + 1, total_pages: 70 })
+            createPageStat(db, book1, bookDevice2, device2, {
+              page: i + 1,
+              total_pages: 70,
+              start_time: i + 1,
+            })
           )
         );
         result = await BooksRepository.getAllWithData();
@@ -299,7 +312,11 @@ describe(BooksRepository, () => {
 
           await Promise.all(
             range(0, 10).map((i) =>
-              createPageStat(db, book1, bookDevice1, device1, { page: i + 1, total_pages: 50 })
+              createPageStat(db, book1, bookDevice1, device1, {
+                page: i + 1,
+                total_pages: 50,
+                start_time: i + 1,
+              })
             )
           );
 
@@ -317,13 +334,21 @@ describe(BooksRepository, () => {
 
           await Promise.all(
             range(0, 10).map((i) =>
-              createPageStat(db, book1, bookDevice1, device1, { page: i + 1, total_pages: 50 })
+              createPageStat(db, book1, bookDevice1, device1, {
+                page: i + 1,
+                total_pages: 50,
+                start_time: i + 1,
+              })
             )
           );
 
           await Promise.all(
             range(0, 10).map((i) =>
-              createPageStat(db, book1, bookDevice2, device2, { page: i + 1, total_pages: 70 })
+              createPageStat(db, book1, bookDevice2, device2, {
+                page: i + 1,
+                total_pages: 70,
+                start_time: i + 1,
+              })
             )
           );
 

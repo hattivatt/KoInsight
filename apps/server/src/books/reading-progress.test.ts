@@ -3,6 +3,7 @@ import { range } from 'ramda';
 import { db } from '../knex';
 import { UploadService } from '../upload/upload-service';
 import { BooksRepository } from './books-repository';
+import { getReadProgressPages } from './reading-progress';
 
 /**
  * Regression test for the reported two-device book:
@@ -126,8 +127,11 @@ describe('two-device book regression', () => {
     expect(result.total_pages).toEqual(1148);
     // 356 laptop rows + 138 phone rows
     expect(result.total_read_pages).toEqual(494);
-    // Furthest position: phone page 666 of 1148 -> 666.
-    expect(result.read_progress_pages).toEqual(666);
+    // The phone uploaded first and the laptop uploaded second; the laptop's
+    // last event is page 435/751 -> 435 * 1148 / 751 ≈ 664.95 -> 665.
+    // `read_progress_pages` is the CURRENT page (latest event), so the phone's
+    // furthest page 666 must not win just because it is further along.
+    expect(result.read_progress_pages).toEqual(665);
     // Scaled union covers [0, 666] exactly (raw union was only 396).
     expect(result.unique_read_pages).toEqual(666);
     expect(result.unique_read_pages).toBeGreaterThan(RAW_UNION_SIZE);
@@ -154,5 +158,49 @@ describe('two-device book regression', () => {
 
     const book = (await db<Book>('book').where({ md5: MD5 }).first()) as Book;
     expect(book.reference_pages).toEqual(500);
+  });
+});
+
+describe(getReadProgressPages, () => {
+  const book = { reference_pages: 1093 } as Book;
+
+  function stat(page: number, start_time: number): PageStat {
+    return {
+      book_md5: 'footnote-book',
+      device_id: 'device',
+      page,
+      total_pages: 1093,
+      start_time,
+      duration: 1,
+    };
+  }
+
+  it('returns the latest reading event page, not the furthest page ever reached', () => {
+    // Regression: jump to a footnote on page 961, then return to page 176.
+    const stats = [stat(176, 1000), stat(961, 2000), stat(176, 3000)];
+
+    expect(getReadProgressPages(book, [], stats)).toEqual(176);
+  });
+
+  it('breaks ties on the latest start_time using the highest scaled page', () => {
+    // A reading-session row and a footnote row can share a timestamp.
+    const stats = [stat(176, 3000), stat(961, 3000)];
+
+    expect(getReadProgressPages(book, [], stats)).toEqual(961);
+  });
+
+  it('scales the latest row onto the canonical book scale', () => {
+    const scaledBook = { reference_pages: 200 } as Book;
+    const stats = [
+      { ...stat(100, 1000), total_pages: 100 },
+      { ...stat(50, 2000), total_pages: 100 },
+    ];
+
+    // 50 of a 100-page layout on a 200-page scale -> 100.
+    expect(getReadProgressPages(scaledBook, [], stats)).toEqual(100);
+  });
+
+  it('returns 0 when there are no stats', () => {
+    expect(getReadProgressPages(book, [], [])).toEqual(0);
   });
 });
