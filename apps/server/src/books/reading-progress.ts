@@ -118,6 +118,15 @@ export function getUniqueReadPages(
  * with the highest scaled page wins. Rows that cannot be scaled fall back to
  * their raw page number so a number is still produced.
  *
+ * A later page-1 event is not allowed to rewind progress for a book that
+ * already has real progress. KOReader records such an event when a reading
+ * position is lost/reset and the book is reopened at the start (the stats row
+ * is otherwise a perfectly normal, timed page). Without this guard a single
+ * accidental reset made a 913-page book read "1 / 2040" again. The guard only
+ * applies to start-of-book rows (`page <= 1`): genuine backward navigation
+ * (e.g. following a footnote and going back) is still reported as the current
+ * page, and a book whose only event is page 1 still reports page 1.
+ *
  * `start_time` normally arrives in milliseconds (`StatsRepository` normalises
  * the DB's seconds to ms), but callers/tests may pass seconds. Values below
  * 1e10 are treated as Unix seconds and converted to ms (1e10 ms is 1970-04-26,
@@ -132,20 +141,38 @@ export function getReadProgressPages(
   const secondsThreshold = 1e10;
   let latestTime = -Infinity;
   let latestPage = 0;
+  let latestIsStart = false;
+
+  // Latest event that is not at the start of the book (see the doc comment).
+  let latestBeyondStartTime = -Infinity;
+  let latestBeyondStartPage = 0;
 
   for (const stat of stats ?? []) {
     const rawTime = stat.start_time ?? 0;
     const time = rawTime < secondsThreshold ? rawTime * 1000 : rawTime;
     const end =
       scale > 0 && stat.total_pages > 0 ? (stat.page * scale) / stat.total_pages : stat.page;
+    const isStart = stat.page <= 1;
 
     if (time > latestTime || (time === latestTime && end > latestPage)) {
       latestTime = time;
       latestPage = end;
+      latestIsStart = isStart;
+    }
+
+    if (
+      !isStart &&
+      (time > latestBeyondStartTime ||
+        (time === latestBeyondStartTime && end > latestBeyondStartPage))
+    ) {
+      latestBeyondStartTime = time;
+      latestBeyondStartPage = end;
     }
   }
 
-  return Math.round(latestPage);
+  return Math.round(
+    latestIsStart && latestBeyondStartPage > 0 ? latestBeyondStartPage : latestPage
+  );
 }
 
 /**

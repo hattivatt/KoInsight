@@ -366,7 +366,7 @@ export const apiDescription: ApiDescription = {
           name: 'read_progress_pages',
           type: 'number',
           description:
-            'Current position (page of the latest reading event), on the canonical page scale.',
+            'Current position (page of the latest reading event), on the canonical page scale. A late page-1 event (KOReader resetting a lost reading position) is ignored when the book already has progress.',
         },
         { name: 'notes', type: 'number' },
         { name: 'highlights', type: 'number' },

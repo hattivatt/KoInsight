@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+Reading progress is no longer rewound by a spurious page-1 reading event. When KOReader loses/resets a book's reading position it can record a normal, timed page-1 row in `page_stat_data` after months of progress; because `read_progress_pages` reports the latest reading event, such a row made a 913-page book show "1 / 2040". The latest event is still used for progress, but a start-of-book (`page <= 1`) event only wins when the book has no later position, so genuine backward navigation and footnote returns keep working.
+
 ## [0.2.6] - 2026-11-04
 
 ### Fixed

@@ -189,6 +189,35 @@ describe(getReadProgressPages, () => {
     expect(getReadProgressPages(book, [], stats)).toEqual(961);
   });
 
+  it('ignores a page-1 reset event recorded after real progress', () => {
+    // Regression: KOReader reopened a partly read book at page 1 (lost reading
+    // position), logged one short page-1 event, and the book went from
+    // 913/2040 read back to 1/2040 in the UI.
+    const stats = [stat(957, 1000), stat(1328, 2000), stat(1, 3000)];
+
+    expect(getReadProgressPages(book, [], stats)).toEqual(1328);
+  });
+
+  it('does not let a page-1 reset on one device hide another device progress', () => {
+    const scaledBook = { reference_pages: 2040 } as Book;
+    const stats = [
+      { ...stat(957, 1000), total_pages: 1281, device_id: 'laptop' },
+      { ...stat(1328, 2000), total_pages: 2040, device_id: 'phone' },
+      { ...stat(1, 3000), total_pages: 2040, device_id: 'phone' },
+    ];
+
+    // 1328 on the canonical 2040 scale, not the later page-1 reset.
+    expect(getReadProgressPages(scaledBook, [], stats)).toEqual(1328);
+  });
+
+  it('still reports page 1 when it is the only reading event', () => {
+    expect(getReadProgressPages(book, [], [stat(1, 1000)])).toEqual(1);
+  });
+
+  it('reports the latest start page when the book has only start pages', () => {
+    expect(getReadProgressPages(book, [], [stat(1, 1000), stat(1, 2000)])).toEqual(1);
+  });
+
   it('scales the latest row onto the canonical book scale', () => {
     const scaledBook = { reference_pages: 200 } as Book;
     const stats = [

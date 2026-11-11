@@ -15,7 +15,11 @@ type Stats = {
    */
   total_read_pages: number;
   unique_read_pages: number;
-  /** Current book position (page of the latest reading event), on the canonical page scale. */
+  /**
+   * Current book position (page of the latest reading event), on the canonical
+   * page scale. A late page-1 event (KOReader resetting a lost reading
+   * position) does not rewind a book that already has progress.
+   */
   read_progress_pages: number;
   notes: number;
   highlights: number;
